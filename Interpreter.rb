@@ -54,6 +54,8 @@ module Interpreter
                         finish = index + 1
                     end
                     case current_token
+                    when '='
+                        type = :assignment
                     when '=='
                         type = :equals
                     when '&'
@@ -228,6 +230,10 @@ module Interpreter
                     capture
                     right = unary
                     left = Address.new(left, right, left.loc_x, right.loc_y)
+                elsif has(:assignment)
+                    capture
+                    right = unary
+                    left.set_val(right)
                 else
                     break
                 end
