@@ -1,5 +1,4 @@
 module Model
-
     #Abstractions
     class Environment
         attr_accessor :grid
@@ -15,28 +14,26 @@ module Model
         end
 
         def get(address)
-            check(address.x, address.y)
-            return @array[address.x][address.y]
-        end
-
-        def get(x, y)
-            if (!check(x, y))
+            if (!check(address.x.value, address.y.value))
                 return nil
             end
-            return @array[x][y]
+            return @array[address.x.value][address.y.value]
         end
 
         def set (address, rvalue)
             if (address.x >= @array.length() or address.y >= @array[address.x].length())
-                raise "Out of bounds"
+                resize(address.x, address.y)
             end
             @array[address.x][address.y] = rvalue
         end
 
         def check(x, y)
-            if (x >= @array.length() or y >= @array[x].length() or @array[x][y] == nil)
-                raise "Undefined"
+            if (x >= @array.length() or y >= @array[x].length())
+                return false
+            elsif @array[x][y] == nil
+                return false
             end
+            true
         end 
 
         def resize(x, y)
@@ -52,21 +49,29 @@ module Model
     end
     
     class Expression
-        def initialize(left, right)
+        attr_accessor :loc_y, :loc_x
+        def initialize(left, right, loc_x, loc_y)
             @left = left
             @right = right
+            @loc_x = loc_x
+            @loc_y = loc_y
+        end
+        def loc_to_s
+            "(#{loc_x}, #{loc_y})"
         end
     end
     
     #Primitive
     class Primitive < Expression
-        attr_reader :value
-        def initialize(value)
+        attr_reader :value, :loc_y, :loc_x
+        def initialize(value, loc_x, loc_y)
             @value = value
+            @loc_x = loc_x
+            @loc_y = loc_y
         end
         def evaluate(environment)
             if (@value.is_a?(Expression)) 
-                raise "Invalid input, must be primitive"
+                raise "Invalid input, must be primitive: #{@value} #{@value.loc_to_s}"
             end
             self
         end
@@ -76,9 +81,21 @@ module Model
     end
     
     class IntegerPrimitive < Primitive
+        attr_reader :value, :loc_y, :loc_x
+        def initialize(value, loc_x, loc_y)
+            @value = value.to_i
+            @loc_x = loc_x
+            @loc_y = loc_y
+        end
     end
 
     class FloatPrimitive < Primitive
+        attr_reader :value, :loc_y, :loc_x
+        def initialize(value, loc_x, loc_y)
+            @value = value.to_f
+            @loc_x = loc_x
+            @loc_y = loc_y
+        end
     end
 
     class StringPrimitive < Primitive
@@ -87,7 +104,7 @@ module Model
     class BooleanPrimitive < Primitive
         def evaluate(environment)
             if (@value.instance_of? Expression)
-                raise "Invalid input, must be primitive" 
+                raise "Invalid input, must be primitive: #{@value} #{@value.loc_to_s}" 
             end
             if @value == false || @value == nil
                 @value = false
@@ -105,16 +122,16 @@ module Model
                 if (val1.class == val2.class)
                     return [val1, val2]
                 end
-                raise "Incompatible Operands"
+                raise "Incompatible Operands:\n#{val1.class} #{val1} #{val1.loc_to_s}\n#{val2.class} #{val2} #{val2.loc_to_s}"
             end
-            raise "Operands must be numeric"
+            raise "Operands must be numeric:\n#{val1.class} #{val1} #{val1.loc_to_s}\n#{val2.class} #{val2} #{val2.loc_to_s}"
         end
     end
     
     class Add < Arithmetic
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            vals[0].class.new(vals[0].value + vals[1].value)
+            vals[0].class.new(vals[0].value + vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} + #{@right.to_s}"
@@ -124,7 +141,7 @@ module Model
     class Subtract < Arithmetic
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            vals[0].class.new(vals[0].value - vals[1].value)
+            vals[0].class.new(vals[0].value - vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} - #{@right.to_s}"
@@ -134,7 +151,7 @@ module Model
     class Multiply < Arithmetic
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            vals[0].class.new(vals[0].value * vals[1].value)
+            vals[0].class.new(vals[0].value * vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} * #{@right.to_s}"
@@ -144,7 +161,7 @@ module Model
     class Divide < Arithmetic
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            vals[0].class.new(vals[0].value / vals[1].value)
+            vals[0].class.new(vals[0].value / vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} / #{@right.to_s}"
@@ -154,7 +171,7 @@ module Model
     class Modulo < Arithmetic
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            vals[0].class.new(vals[0].value % vals[1].value)
+            vals[0].class.new(vals[0].value % vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} % #{@right.to_s}"
@@ -164,10 +181,10 @@ module Model
     class Exponentiate < Arithmetic
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            vals[0].class.new(vals[0].value ** vals[1].value)
+            vals[0].class.new(vals[0].value ** vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
-            "#{@left.to_s}^#{@right.to_s}"
+            "#{@left.to_s} ** #{@right.to_s}"
         end 
     end
 
@@ -178,16 +195,16 @@ module Model
                 if (val1.class == val2.class)
                     return [val1, val2]
                 end
-                raise "Incompatible Operands"
+                raise "Incompatible Operands:\n#{val1.class} #{val1} #{val1.loc_to_s}\n#{val2.class} #{val2} #{val2.loc_to_s}"
             end
-            raise "Operands must be Boolean"
+            raise "Operands must be boolean:\n#{val1.class} #{val1} #{val1.loc_to_s}\n#{val2.class} #{val2} #{val2.loc_to_s}"
         end
     end
 
     class AndLogical < Logical
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            BooleanPrimitive.new(vals[0].value && vals[1].value)
+            BooleanPrimitive.new(vals[0].value && vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} && #{@right.to_s}"
@@ -197,7 +214,7 @@ module Model
     class OrLogical < Logical
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            BooleanPrimitive.new(vals[0].value || vals[1].value)
+            BooleanPrimitive.new(vals[0].value || vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} || #{@right.to_s}"
@@ -205,16 +222,19 @@ module Model
     end
 
     class NotLogical < Logical
-        def initialize(value)
+        attr_accessor :loc_y, :loc_x
+        def initialize(value, loc_x, loc_y)
             @value = value
+            @loc_x = loc_x
+            @loc_y = loc_y
         end
         def evaluate(environment)
             val = @value.evaluate(environment)
-            if (val.is_a? Expression)
+            if (val.is_a? Expression || val.instance_of?(BooleanPrimitive))
                 if (val.instance_of?(BooleanPrimitive))
-                    return BooleanPrimitive.new(!val.value)
+                    return BooleanPrimitive.new(!val.value, val.loc_x, val.loc_y)
                 end
-                raise "Operand must be Boolean"
+                raise "Operand must be Boolean\n#{val.class} #{val} #{val.loc_to_s}"
             end
             raise "Operand must be Expression"
         end
@@ -231,19 +251,21 @@ module Model
                     if (val1.class == val2.class)
                         return [val1, val2]
                     end
-                    raise "Incompatible Operands"
+                    raise "Incompatible Operands:\n#{val1.class} #{val1} #{val1.loc_to_s}\n#{val2.class} #{val2} #{val2.loc_to_s}"
                 end
-                raise "Operands must be Integers"
+                raise "Operands must be integers:\n#{val1.class} #{val1} #{val1.loc_to_s}\n#{val2.class} #{val2} #{val2.loc_to_s}"
             end
-            raise "Operand must be Expression"
+            raise "Operand must be Expression: #{val1}, #{val2}"
         end
     end
 
     class AndBitwise < Bitwise
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            IntegerPrimitive.new(vals[0].value & vals[1].value)
+            
+            IntegerPrimitive.new(vals[0].value & vals[1].value, @left.loc_x, @right.loc_y)
         end
+
         def to_s
             "#{@left.to_s} & #{@right.to_s}"
         end 
@@ -252,7 +274,7 @@ module Model
     class OrBitwise < Bitwise
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            IntegerPrimitive.new(vals[0].value | vals[1].value)
+            IntegerPrimitive.new(vals[0].value | vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} | #{@right.to_s}"
@@ -260,14 +282,17 @@ module Model
     end
 
     class NotBitwise < Bitwise
-        def initialize(value)
+        attr_accessor :loc_y, :loc_x
+        def initialize(value, loc_x, loc_y)
             @value = value
+            @loc_x = loc_x
+            @loc_y = loc_y
         end
         def evaluate(environment)
             val = @value.evaluate(environment)
             if (val.is_a? Expression)
                 if (val.instance_of?(IntegerPrimitive))
-                    return IntegerPrimitive.new(~(val.value))
+                    return IntegerPrimitive.new(~(val.value), val.loc_x, val.loc_y)
                 end
                 raise "Operand must be Integer" 
             end
@@ -282,7 +307,7 @@ module Model
     class Xor < Bitwise
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            IntegerPrimitive.new(vals[0].value ^ vals[1].value)
+            IntegerPrimitive.new(vals[0].value ^ vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} ^ #{@right.to_s}"
@@ -292,7 +317,7 @@ module Model
     class LeftShift < Bitwise
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            IntegerPrimitive.new(vals[0].value << vals[1].value)
+            IntegerPrimitive.new(vals[0].value << vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} << #{@right.to_s}"
@@ -302,7 +327,7 @@ module Model
     class RightShift < Bitwise
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            IntegerPrimitive.new(vals[0].value >> vals[1].value)
+            IntegerPrimitive.new(vals[0].value >> vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} >> #{@right.to_s}"
@@ -316,16 +341,16 @@ module Model
                 if (val1.class == val2.class)
                     return [val1, val2]
                 end
-                raise "Incompatible Operands"
+                raise "Incompatible Operands:\n#{val1.class} #{val1} #{val1.loc_to_s}\n#{val2.class} #{val2} #{val2.loc_to_s}"
             end
-            raise "Operands must be Numeric"
+            raise "Operands must be numeric:\n#{val1.class} #{val1} #{val1.loc_to_s}\n#{val2.class} #{val2} #{val2.loc_to_s}"
         end
     end
 
     class Equals < Relational
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            BooleanPrimitive.new(vals[0].value == vals[1].value)
+            BooleanPrimitive.new(vals[0].value == vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} == #{@right.to_s}"
@@ -335,7 +360,7 @@ module Model
     class NotEquals < Relational
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            BooleanPrimitive.new(vals[0].value != vals[1].value)
+            BooleanPrimitive.new(vals[0].value != vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} != #{@right.to_s}"
@@ -344,7 +369,7 @@ module Model
     class LessThan < Relational
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            BooleanPrimitive.new(vals[0].value < vals[1].value)
+            BooleanPrimitive.new(vals[0].value < vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} < #{@right.to_s}"
@@ -353,7 +378,7 @@ module Model
     class LessEquals < Relational
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            BooleanPrimitive.new(vals[0].value <= vals[1].value)
+            BooleanPrimitive.new(vals[0].value <= vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} <= #{@right.to_s}"
@@ -362,7 +387,7 @@ module Model
     class GreaterThan < Relational
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            BooleanPrimitive.new(vals[0].value < vals[1].value)
+            BooleanPrimitive.new(vals[0].value > vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} > #{@right.to_s}"
@@ -371,7 +396,7 @@ module Model
     class GreaterEquals < Relational
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
-            BooleanPrimitive.new(vals[0].value >= vals[1].value)
+            BooleanPrimitive.new(vals[0].value >= vals[1].value, @left.loc_x, @right.loc_y)
         end
         def to_s
             "#{@left.to_s} >= #{@right.to_s}"
@@ -380,8 +405,11 @@ module Model
 
     #Cast
     class Cast < Expression
-        def initialize(value)
+        attr_accessor :loc_y, :loc_x
+        def initialize(value, loc_x, loc_y)
             @value = value
+            @loc_x = loc_x
+            @loc_y = loc_y
         end
     end
   
@@ -390,11 +418,11 @@ module Model
             val = @value.evaluate(environment)
             if (val.is_a? Expression)
                 if (val.instance_of?(FloatPrimitive))
-                    return IntegerPrimitive.new(val.value.to_i)
+                    return IntegerPrimitive.new(val.value.to_i, val.loc_x, val.loc_y)
                 end
-                raise "Operand must be Float"
+                raise "Operand must be Float: #{val.class} #{val} #{val.loc_to_s}"
             end
-            raise "Operand must be Expression"
+            raise "Operand must be Expression: #{val}"
         end
         def to_s
             "(#{@value.to_s}).to_i"
@@ -405,11 +433,11 @@ module Model
             val = @value.evaluate(environment)
             if (val.is_a? Expression)
                 if (val.instance_of?(IntegerPrimitive))
-                    return FloatPrimitive.new(val.value.to_f)
+                    return FloatPrimitive.new(val.value.to_f, val.loc_x, val.loc_y)
                 end
-                raise "Operand must be Integer"
+                raise "Operand must be Integer: #{val.class} #{val} #{val.loc_to_s}"
             end
-            raise "Operand must be Expression"
+            raise "Operand must be Expression: #{val} #{val.loc_to_s}"
         end
         def to_s
             "(#{@value.to_s}).to_f"
@@ -423,9 +451,9 @@ module Model
                 if (val1.class == val2.class)
                     return [val1, val2]
                 end
-                raise "Incompatible Types"
+                raise "Incompatible Types:\n#{val1.class} #{val1} #{val1.loc_to_s}\n #{val2.class} #{val2} #{val2.loc_to_s}"
             end
-            raise "Operand must be Address"
+            raise "Operand must be Address: #{val1} #{val1.loc_to_s}, #{val2} #{val2.loc_to_s}"
         end
     end
 
@@ -433,16 +461,20 @@ module Model
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
             max = nil
-            i = @left.x
-            while (i <= @right.x) # row loop
-                j = @left.y
-                while (j <= @right.y) # col loop
-                    curval = CellRValue.new(Address.new(i, j)).evaluate(environment)
-                    if (curval != nil) # makes sure the rvalue exists
+
+            r_x = @right.x.evaluate(environment).value
+            r_y = @right.y.evaluate(environment).value
+
+            i = @left.x.evaluate(environment).value
+            while (i <= r_x) # row loop
+                j = @left.y.evaluate(environment).value
+                while (j <= r_y) # col loop
+                    curval = CellRValue.new(IntegerPrimitive.new(i, 0, 0), IntegerPrimitive.new(j, 0, 0), 0, 0)
+                    if (curval != nil && curval.evaluate(environment) != nil) # makes sure the rvalue exists
                         if (max == nil) # set max if nil or replace old value 
-                            max = curval
+                            max = curval.evaluate(environment)
                         elsif (max.evaluate(environment).value < curval.evaluate(environment).value)
-                            max = curval
+                            max = curval.evaluate(environment)
                         end
                     end
                     j += 1
@@ -459,16 +491,20 @@ module Model
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
             min = nil
-            i = @left.x
-            while (i <= @right.x) # row loop
-                j = @left.y
-                while (j <= @right.y) # col loop
-                    curval = CellRValue.new(Address.new(i, j)).evaluate(environment)
-                    if (curval != nil) # makes sure the rvalue exists
+
+            r_x = @right.x.evaluate(environment).value
+            r_y = @right.y.evaluate(environment).value
+
+            i = @left.x.evaluate(environment).value
+            while (i <= r_x) # row loop
+                j = @left.y.evaluate(environment).value
+                while (j <= r_y) # col loop
+                    curval = CellRValue.new(IntegerPrimitive.new(i, 0, 0), IntegerPrimitive.new(j, 0, 0), 0, 0)
+                    if (curval != nil && curval.evaluate(environment) != nil) # makes sure the rvalue exists
                         if (min == nil) 
-                            min = curval
+                            min = curval.evaluate(environment)
                         elsif (min.evaluate(environment).value > curval.evaluate(environment).value)
-                            min = curval
+                            min = curval.evaluate(environment)
                         end
                     end
                     j += 1
@@ -486,18 +522,25 @@ module Model
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
             sum = 0
             items = 0
-            i = @left.x
-            while (i <= @right.x)
-                j = @left.y
-                while (j <= @right.y)
-                    curval = CellRValue.new(Address.new(i, j)).evaluate(environment)
-                    if (curval != nil)
+
+            r_x = @right.x.evaluate(environment).value
+            r_y = @right.y.evaluate(environment).value
+
+            i = @left.x.evaluate(environment).value
+            while (i <= r_x) # row loop
+                j = @left.y.evaluate(environment).value
+                while (j <= r_y) # col loop
+                    curval = CellRValue.new(IntegerPrimitive.new(i, 0, 0), IntegerPrimitive.new(j, 0, 0), 0, 0)
+                    if (curval != nil && curval.evaluate(environment) != nil)
                         items += 1
                         sum += curval.evaluate(environment).value
                     end
                     j += 1
                 end
                 i += 1
+            end
+            if items == 0
+                return 0
             end
             return sum/items
         end
@@ -509,12 +552,16 @@ module Model
         def evaluate(environment)
             vals = typecheck(@left.evaluate(environment), @right.evaluate(environment), environment)
             sum = 0
-            i = @left.x
-            while (i <= @right.x)
-                j = @left.y
-                while (j <= @right.y)
-                    curval = CellRValue.new(Address.new(i, j)).evaluate(environment)
-                    if (curval != nil)
+
+            r_x = @right.x.evaluate(environment).value
+            r_y = @right.y.evaluate(environment).value
+
+            i = @left.x.evaluate(environment).value
+            while (i <= r_x) # row loop
+                j = @left.y.evaluate(environment).value
+                while (j <= r_y) # col loop
+                    curval = CellRValue.new(IntegerPrimitive.new(i, 0, 0), IntegerPrimitive.new(j, 0, 0), 0, 0)
+                    if (curval != nil && curval.evaluate(environment) != nil)
                         sum += curval.evaluate(environment).value
                     end
                     j += 1
@@ -530,13 +577,15 @@ module Model
 
     #References
     class Address
-        attr_reader :x, :y
-        def initialize(x, y)
+        attr_reader :x, :y, :loc_y, :loc_x
+        def initialize(x, y, loc_x, loc_y)
             @x = x 
             @y = y
+            @loc_x = loc_x
+            @loc_y = loc_y
         end
         def evaluate(environment)
-            if (@x.is_a? Expression or @y.is_a? Expression)
+            if (!@x.is_a? IntegerPrimitive)
                 raise "Operand must be primitive"
             end
             self
@@ -547,40 +596,31 @@ module Model
     end
 
     class CellRValue
-        def initialize(address)
-            @x = address.x
-            @y = address.y
+        attr_accessor :x, :y, :address, :value, :loc_y, :loc_x
+        def initialize(x, y, loc_x, loc_y)
+            @x = x
+            @y = y
+            @loc_x = loc_x
+            @loc_y = loc_y
+            @address = Address.new(@x, @y, @loc_x, @loc_y)
             @value = nil
-<<<<<<< HEAD
-        end
-        def set_val(val)
-            @value = val
-        end
+        end 
         def set(val, environment)
             @value = val
             environment.grid.set(@address, @value)
         end
         def get(environment)
-            @value = environment.grid.get(@address.x.value, @address.y.value)
+            @value = environment.grid.get(@address)
         end
         def evaluate(environment)
+            self.get(environment)
             ret = nil
             if @value != nil
-                @value.evaluate(environment)
+                ret = @value.evaluate(environment)
             end
-=======
-        end
-        def set(value, environment)
-            @value = value
-            environment.grid.set(Address.new(@x, @y), value)
-        end
-        def evaluate(environment)
-            @value = environment.grid.get(Address.new(@x, @y))
-            return @value.evaluate(environment)
->>>>>>> parent of c92ac50 (Model reworks, interpreter, tests for interpreter)
         end
         def to_s
-            "(#{@x}, #{@y}): #{@value}"
+            "#{@address}: #{@value}"
         end
     end
 end

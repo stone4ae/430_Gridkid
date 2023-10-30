@@ -54,8 +54,6 @@ module Interpreter
                         finish = index + 1
                     end
                     case current_token
-                    when '='
-                        type = :assignment
                     when '=='
                         type = :equals
                     when '&'
@@ -155,11 +153,11 @@ module Interpreter
                             type = :float_to_int
                         elsif current_token.downcase == '.to_f'
                             type = :int_to_float
-                        elsif current_token.downcase == 'rvalue'
-                            type = :rvalue
                         elsif current_token.downcase == 'true' || 
                               current_token.downcase == 'false'
                             type = :boolean_literal
+                        elsif current_token.downcase == 'rvalue'
+                          type = :rvalue
                         else
                             raise "Unrecognized token at #{index} : #{current_token}"
                         end
@@ -230,10 +228,11 @@ module Interpreter
                     capture
                     right = unary
                     left = Address.new(left, right, left.loc_x, right.loc_y)
+                # Cell Rvalue assignment
                 elsif has(:assignment)
                     capture
-                    right = unary
-                    left.set_val(right)
+                    right = expression
+                    left = CellRValue.new(left.x, left.y, left.loc_x, left.loc_y)
                 else
                     break
                 end
@@ -400,7 +399,7 @@ module Interpreter
             elsif has(:rvalue)
                 capture
                 left = unary
-                CellRValue.new(left.x, left.y, left.loc_x, left.loc_y)
+                CellRValue.new(left.x, left.y, @index, @index)
             elsif has(:EOF)
                 raise "#{err_token("Out of tokens")}"
             else
