@@ -1,0 +1,53 @@
+﻿expression = operation
+
+
+operation = arithmetic expression
+                 | logical expression
+     | bitwise expression
+     | relational expression
+     | cast expression
+     | cell lvalue
+     | unary
+
+
+unary = left_parenthesis expression right_parenthesis 
+           | prefix expression
+           | primitive
+
+
+primitive = integer_literal
+                | float_literal
+                | boolean_literal
+                | string_literal
+
+
+prefix expression = logical_not
+                             | bitwise_not
+                             | statistical expression
+     | cell rvalue
+                    
+arithmetic expression = operation arithmetic_operator operation
+arithmetic_operator = '+' | '-' | '*' | '/' | '%' | '**'
+
+
+logical expression = operation logical_operator operation
+logical_operator = '&&' | '||'
+
+
+bitwise expression = operation bitwise_operator operation
+bitwise_operator = '&' | '|' | '<<' | '>>' | '^'
+
+
+cast expression = operation cast_operator
+cast_operator = '.to_f' | '.to_i'
+
+
+statistical expression = statistical_operator cell_lvalue
+statistical_operator = 'max' | 'min' | 'sum' | 'mean'
+
+
+cell lvalue =  coordinate
+coordinate = left_parenthesis integer_literal comma integer_literal right_parenthesis
+
+
+cell rvalue = ‘rvalue’ coordinate
