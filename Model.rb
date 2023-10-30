@@ -14,10 +14,10 @@ module Model
         end
 
         def get(address)
-            if (!check(address.x, address.y))
+            if (!check(address.x.value, address.y.value))
                 return nil
             end
-            return @array[address.x][address.y]
+            return @array[address.x.value][address.y.value]
         end
 
         def set (address, rvalue)
@@ -604,7 +604,7 @@ module Model
             @loc_y = loc_y
             @address = Address.new(@x, @y, @loc_x, @loc_y)
             @value = nil
-        end 
+        end
         def set(val, environment)
             @value = val
             environment.grid.set(@address, @value)
@@ -613,7 +613,7 @@ module Model
             @value = environment.grid.get(@address)
         end
         def evaluate(environment)
-            self.get(environment)
+            get(environment)
             ret = nil
             if @value != nil
                 ret = @value.evaluate(environment)
