@@ -102,17 +102,6 @@ module Model
     end
 
     class BooleanPrimitive < Primitive
-        def evaluate(environment)
-            if (@value.instance_of? Expression)
-                raise "Invalid input, must be primitive: #{@value} #{@value.loc_to_s}" 
-            end
-            if @value == false || @value == nil
-                @value = false
-            else
-                @value = true
-            end
-            self
-        end
     end
 
     #Arithmetic
